@@ -25,6 +25,6 @@
                 </div>
             </div>
         </div>
-        <livewire:csv-importer :model="App\Models\Customer::class"/>
+        <livewire:csv-importer :model="App\Models\Customer::class" :columnsToMap="['id', 'firs_name', 'last_name', 'email']" :requiredColumns="['id','first_name','last_name','email']" />
     </div>
 </x-app-layout>
