@@ -2,7 +2,10 @@
 
 namespace App\Http\Livewire;
 
+use App\Helpers\ChunkIterator;
 use League\Csv\Reader;
+use League\Csv\Statement;
+use League\Csv\TabularDataReader;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -22,6 +25,8 @@ class CsvImporter extends Component
 
     public array $requiredColumns = [];
 
+    public array $columnLabels = [];
+
     protected $listeners = [
         'toggle'
     ];
@@ -29,21 +34,30 @@ class CsvImporter extends Component
     public function mount()
     {
         $this->columnsToMap = collect($this->columnsToMap)
-            ->mapWithKeys(fn($column)=> [$column=>''])
+            ->mapWithKeys(fn($column) => [$column => ''])
             ->toArray();
     }
 
     public function rules()
     {
         $columnRules = collect($this->requiredColumns)
-            ->mapWithKeys(function ($column){
-                return ['columnsToMap.'. $column => ['required']];
+            ->mapWithKeys(function ($column) {
+                return ['columnsToMap.' . $column => ['required']];
             })
             ->toArray();
 
         return array_merge($columnRules, [
-          'file' => ['required', 'mimes:csv', 'max:51200']
+            'file' => ['required', 'mimes:csv', 'max:51200']
         ]);
+    }
+
+    public function validationAttributes()
+    {
+        return collect($this->requiredColumns)
+            ->mapWithKeys(function ($column) {
+                return ['columnsToMap.' . $column => $this->columnLabels[$column] ?? $column];
+            })
+            ->toArray();
     }
 
     public function updatedFile()
@@ -58,12 +72,40 @@ class CsvImporter extends Component
     public function import()
     {
         $this->validate();
-        dd('import');
+
+        $chunks = (new ChunkIterator($this->csvRecords->getRecords(), 10))
+        ->get();
+
+
+
+        $this->createImport();
     }
 
-    public function readCsv(string $path):Reader
+    public function getReadCsvProperty():Reader
     {
-        $stream = fopen( $path, 'r');
+        return $this->readCsv($this->file->getRealPath());
+    }
+
+    public function getCsvRecordsProperty(): TabularDataReader
+    {
+        return Statement::create()->process($this->readCsv);
+    }
+
+    public function createImport()
+    {
+        return auth()->user()->imports()->create([
+            'file_path'  => $this->file->getRealPath(),
+            'file_name'  => $this->file->getClientOriginalName(),
+            'total_rows' => count($this->csvRecords),
+            'model'      => $this->model,
+
+        ]);
+    }
+
+
+    public function readCsv(string $path): Reader
+    {
+        $stream = fopen($path, 'r');
         $csv = Reader::createFromStream($stream);
         $csv->setHeaderOffset(0);
 

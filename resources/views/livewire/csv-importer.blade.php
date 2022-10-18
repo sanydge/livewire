@@ -92,7 +92,7 @@
                                             <div class="grid grid-cols-4 gap-4 items-start">
                                                 <label for="{{ $column }}"
                                                        class="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2 col-span-1">
-                                                    {{ $column }}*
+                                                    {{ $columnLabels[$column] ?? $column}}*
                                                 </label>
                                                 <div class="mt-1 sm:mt-0 sm:col-span-3">
                                                     <select wire:model="columnsToMap.{{ $column }}" type="text" name="{{ $column }}" id="{{ $column }}"
