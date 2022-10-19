@@ -96,6 +96,13 @@ class CsvImporter extends Component
             (new ChunkIterator($this->csvRecords->getRecords(), 10))
                 ->get()
         )->map(function ($chunk) use ($import) {
+            foreach ($chunk as $index => $element) {
+                $entry = [];
+                foreach ($this->columnsToMap as $modelField => $csvField) {
+                    $entry[$modelField] = $element[$csvField];
+                }
+                $chunk[$index] = $entry;
+            }
             return new ImportCsv($import, $this->model, $chunk, $this->columnsToMap);
         })
         ->toArray();

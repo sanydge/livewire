@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Import;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -36,7 +35,7 @@ class ImportCsv implements ShouldQueue
         $affectedRows = $this->model::upsert(
             $this->chunk,
             ['id'],
-            collect($this->columns)->diff('id')->keys()->toArray()
+            collect($this->columns)->diff(['id'])->keys()->toArray()
         );
 
         $this->import->increment('processed_rows', $affectedRows);
