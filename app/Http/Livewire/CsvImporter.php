@@ -7,7 +7,6 @@ use App\Jobs\ImportCsv;
 use Illuminate\Support\Facades\Bus;
 use League\Csv\Reader;
 use League\Csv\Statement;
-use League\Csv\TabularDataReader;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -23,6 +22,8 @@ class CsvImporter extends Component
 
     public array $fileHeaders = [];
 
+    public int $fileRowCount = 0;
+
     public array $columnsToMap = [];
 
     public array $requiredColumns = [];
@@ -36,7 +37,7 @@ class CsvImporter extends Component
     public function mount()
     {
         $this->columnsToMap = collect($this->columnsToMap)
-            ->mapWithKeys(fn($column) => [$column => ''])
+            ->mapWithKeys(fn ($column) => [$column => ''])
             ->toArray();
     }
 
@@ -49,7 +50,7 @@ class CsvImporter extends Component
             ->toArray();
 
         return array_merge($columnRules, [
-            'file' => ['required', 'mimes:csv', 'max:51200']
+            'file' => ['required', 'mimes:csv', 'max:51200'],
         ]);
     }
 
@@ -57,7 +58,7 @@ class CsvImporter extends Component
     {
         return collect($this->requiredColumns)
             ->mapWithKeys(function ($column) {
-                return ['columnsToMap.' . $column => $this->columnLabels[$column] ?? $column];
+                return ['columnsToMap.' . $column => strtolower($this->columnLabels[$column] ?? $column)];
             })
             ->toArray();
     }
@@ -66,27 +67,13 @@ class CsvImporter extends Component
     {
         $this->validateOnly('file');
 
-        $csv = $this->readCsv($this->file->getRealPath());
+        $csv = $this->readCsv;
 
         $this->fileHeaders = $csv->getHeader();
-    }
 
-    public function import()
-    {
-        $this->validate();
+        $this->fileRowCount = count($this->csvRecords);
 
-        $batches = collect(
-            (new ChunkIterator($this->csvRecords->getRecords(), 10))
-                ->get()
-        )->map(function ($chunk) {
-            return new ImportCsv();
-        })
-        ->toArray();
-
-        Bus::batch($batches)
-            ->dispatch();
-
-        $this->createImport();
+        $this->resetValidation();
     }
 
     public function getReadCsvProperty(): Reader
@@ -94,31 +81,53 @@ class CsvImporter extends Component
         return $this->readCsv($this->file->getRealPath());
     }
 
-    public function getCsvRecordsProperty(): TabularDataReader
+    public function getCsvRecordsProperty()
     {
         return Statement::create()->process($this->readCsv);
+    }
+
+    public function import()
+    {
+        $this->validate();
+
+        $import = $this->createImport();
+
+        $batches = collect(
+            (new ChunkIterator($this->csvRecords->getRecords(), 10))
+                ->get()
+        )->map(function ($chunk) use ($import) {
+            return new ImportCsv($import, $this->model, $chunk, $this->columnsToMap);
+        })
+        ->toArray();
+
+        Bus::batch($batches)
+            ->finally(function () use ($import) {
+                $import->touch('completed_at');
+            })
+            ->dispatch();
+
+        $this->resetExcept(['model', 'columnsToMap', 'columnLabels', 'requiredColumns', 'open']);
+
+        $this->emitTo('csv-imports', 'imports.refresh');
     }
 
     public function createImport()
     {
         return auth()->user()->imports()->create([
-            'file_path'  => $this->file->getRealPath(),
-            'file_name'  => $this->file->getClientOriginalName(),
+            'file_path' => $this->file->getRealPath(),
+            'file_name' => $this->file->getClientOriginalName(),
             'total_rows' => count($this->csvRecords),
-            'model'      => $this->model,
-
+            'model' => $this->model,
         ]);
     }
 
-
-    public function readCsv(string $path): Reader
+    protected function readCsv(string $path): Reader
     {
         $stream = fopen($path, 'r');
         $csv = Reader::createFromStream($stream);
         $csv->setHeaderOffset(0);
 
         return $csv;
-
     }
 
     public function toggle()

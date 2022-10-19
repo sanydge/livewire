@@ -10,7 +10,7 @@ class CustomerIndexController extends Controller
     public function __invoke()
     {
         return view('customers.index', [
-            'customers' => Customer::latest() -> paginate(100)
+            'customers' => Customer::latest()->paginate(100)
         ]);
     }
 }

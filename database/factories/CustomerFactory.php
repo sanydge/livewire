@@ -23,7 +23,6 @@ class CustomerFactory extends Factory
             'company' => $this->faker->company(),
             'vip' => false,
             'birthday' => $this->faker->dateTimeThisCentury(),
-
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Import;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -20,7 +21,7 @@ class ImportCsv implements ShouldQueue
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(public Import $import, public string $model, public array $chunk, public array $columns)
     {
         //
     }
@@ -32,6 +33,14 @@ class ImportCsv implements ShouldQueue
      */
     public function handle()
     {
-        \Log::info('run');
+        $affectedRows = $this->model::upsert(
+            $this->chunk,
+            ['id'],
+            collect($this->columns)->diff('id')->keys()->toArray()
+        );
+
+        $this->import->increment('processed_rows', $affectedRows);
+
+        sleep(1);
     }
 }
