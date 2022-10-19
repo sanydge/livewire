@@ -100,6 +100,7 @@ class CsvImporter extends Component
         })
         ->toArray();
 
+
         Bus::batch($batches)
             ->finally(function () use ($import) {
                 $import->touch('completed_at');
