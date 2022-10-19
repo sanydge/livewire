@@ -3,6 +3,8 @@
 namespace App\Http\Livewire;
 
 use App\Helpers\ChunkIterator;
+use App\Jobs\ImportCsv;
+use Illuminate\Support\Facades\Bus;
 use League\Csv\Reader;
 use League\Csv\Statement;
 use League\Csv\TabularDataReader;
@@ -73,15 +75,21 @@ class CsvImporter extends Component
     {
         $this->validate();
 
-        $chunks = (new ChunkIterator($this->csvRecords->getRecords(), 10))
-        ->get();
+        $batches = collect(
+            (new ChunkIterator($this->csvRecords->getRecords(), 10))
+                ->get()
+        )->map(function ($chunk) {
+            return new ImportCsv();
+        })
+        ->toArray();
 
-
+        Bus::batch($batches)
+            ->dispatch();
 
         $this->createImport();
     }
 
-    public function getReadCsvProperty():Reader
+    public function getReadCsvProperty(): Reader
     {
         return $this->readCsv($this->file->getRealPath());
     }
