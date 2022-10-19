@@ -75,18 +75,20 @@ class CsvImporter extends Component
     {
         $this->validate();
 
+        $import = $this->createImport();
+
         $batches = collect(
             (new ChunkIterator($this->csvRecords->getRecords(), 10))
                 ->get()
-        )->map(function ($chunk) {
-            return new ImportCsv();
+        )->map(function ($chunk) use ($import) {
+            return new ImportCsv($import, $this->model, $chunk, $this->columnsToMap);
         })
         ->toArray();
+
 
         Bus::batch($batches)
             ->dispatch();
 
-        $this->createImport();
     }
 
     public function getReadCsvProperty(): Reader
